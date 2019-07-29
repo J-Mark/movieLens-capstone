@@ -1,0 +1,28 @@
+---
+title: "EDX MovieLens Capstone Project"
+author: Mark145
+date: Summer 2019
+output: 
+  pdf_document:
+   # toc: true
+    #number_selections: true
+fontsize: 12pt
+geometry: margin=1in
+---
+```{r, include=FALSE}
+options(tinytex.verbose = TRUE)
+```
+
+#introduction/overview/executive summary
+an introduction/overview/executive summary section that describes the dataset and summarizes the goal of the project and key steps that were performed
+
+Do you want insight into how internet based video services 'tailor' movie reccomendations specifically to you? Or do you want to know which aspects of your user data is being used to generate these recommendations?
+
+Here you will be able to view the type of data provided to video services and observe machine leaning techniques preformed 
+
+#methods/analysis
+a methods/analysis section that explains the process and techniques used, such as data cleaning, data exploration and visualization, any insights gained, and your modeling approach
+a results section that presents the modeling results and discusses the model performance
+
+#conclusion
+a conclusion section that gives a brief summary of the report, its limitations and future work (the last two are recommended but not necessary)
