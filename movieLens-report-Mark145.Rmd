@@ -9,8 +9,16 @@ output:
 fontsize: 12pt
 geometry: margin=1in
 ---
-```{r, include=FALSE}
+```{r, setup, include=FALSE}
 options(tinytex.verbose = TRUE)
+
+# Note: this process could take a couple of minutes
+
+if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(data.table)) install.packages("data.table", repos = "http://cran.us.r-project.org")
+
+library(tidyverse, caret, data.table)
 ```
 
 #introduction/overview/executive summary
@@ -34,12 +42,6 @@ The following script will generate 2 tables for us to analyze and model a video 
 ################################
 # Create edx set, validation set
 ################################
-
-# Note: this process could take a couple of minutes
-
-if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
-if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
-if(!require(data.table)) install.packages("data.table", repos = "http://cran.us.r-project.org")
 
 # MovieLens 10M dataset:
 # https://grouplens.org/datasets/movielens/10m/
@@ -89,16 +91,26 @@ Users were selected at random for inclusion. All users selected had rated at lea
 
 ##explore the data
 
+Now we can explore our training data.  By examining the structure of our training and test sets.
+
 ```{r, set dims}
 str(edx)
 str(validation)
 ```
 
-By looking at each set's structure, we see a slight difference in the dimensions.  'edx' has 9000055 objects where as 'validation' only has 999999 objects.  Otherwise the data is setup in the same format, with varing values between the sets.  Below are some visual representations of the data.
+By looking at each set's structure, we see a slight difference in the dimensions.  'edx' has 9000055 objects where as 'validation' only has 999999 objects (sumed together = our expected MovieLens 10M data of 10000054).  Otherwise the data is setup in the same format, with varing values between the sets.  Below are some visual representations of the data.
 
-```{r}
-edx %>% ggplot(aes())
+```{r, set object sum}
+dim(edx)[1]+dim(validation)[1]
 ```
+
+Our ratings are stepped in .5 increments from .5 to 5 with 5 representing a movie for which the viewer had the most praise for and a .5 value rating representing a movie for which the viewer had the least praise.
+
+```{r, rating chart}
+ggplot(edx, aes(rating)) +
+  geom_dotplot()
+```
+
 
 
 #conclusion
