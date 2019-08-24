@@ -22,13 +22,28 @@ library(tidyverse, caret, data.table)
 ```
 
 #introduction/overview/executive summary
-an introduction/overview/executive summary section that describes the dataset and summarizes the goal of the project and key steps that were performed
+
+##Introduction
 
 Do you want insight into how internet based video services 'tailor' movie reccomendations specifically to you? Or do you want to know which aspects of your user data is being used to generate these recommendations?
 
 Here you will be able to view the type of data used by video services and observe machine leaning techniques used to generate movie recommendations.
 
+##Overview
 
+This report, and associated script, devlops and preforms a machine learning algorithm on the MovieLens 10M dataset.
+
+The MovieLens 10M dataset if found on grouplens.org.  Grouplens' stated summary of the dataset is as follows:
+
+"This data set contains 10000054 ratings and 95580 tags applied to 10681 movies by 71567 users of the online movie recommender service MovieLens.
+
+Users were selected at random for inclusion. All users selected had rated at least 20 movies. Unlike previous MovieLens data sets, no demographic information is included. Each user is represented by an id, and no other information is provided." - http://files.grouplens.org/
+
+##Executive Summary
+
+The report flows from preforming data wrangling, data exploration to algorithm development.  Algorithm development consists of preforming 3 averages upon the rating data found within the dataset.  The first average is agnostic to any other data and is used as a starting point.  After establishment of the base average, movie bias was added or subtracted based on the the movie's average rating when compared to the base average.  Lastly, the user average rating was calculated and also added or subtracted from the base rating average and incorporated into the algorithm.  Algorithm preformance is based on Risdual Mean Square Error (RMSE) and is tested within this report upon a training set 'edx'.  The associated script file 'movieLens-algorithm-Mark145.R' preforms the algorithm upon the validation set 'validation'.  
+
+Resulting RMSEs range between .80-.85 upon the MovieLens data set.
 
 #methods/analysis
 a methods/analysis section that explains the process and techniques used, such as data cleaning, data exploration and visualization, any insights gained, and your modeling approach
@@ -36,7 +51,7 @@ a results section that presents the modeling results and discusses the model per
 
 ##aquire the data
 
-The following script will generate 2 tables for us to analyze and model a video services machine learning algorithm against.  The two tables, edx set and validation set, are considered our train and test sets respectivly.
+The following script will generate 2 tables for us to analyze and model a machine learning algorithm against.  The two tables, edx set and validation set, are considered our train and test sets respectivly.  Data is pulled directly from grouplens.org and formated into two tables used as our datasets.
 
 ```{r, Create edx set, validation set}
 ################################
@@ -83,12 +98,6 @@ edx <- rbind(edx, removed)
 rm(dl, ratings, movies, test_index, temp, movielens, removed)
 ```
 
-The data aquired from the following script is derived from the MovieLens 10M dataset.  The GroupLens stated summary of the data set is as follows:
-
-"This data set contains 10000054 ratings and 95580 tags applied to 10681 movies by 71567 users of the online movie recommender service MovieLens.
-
-Users were selected at random for inclusion. All users selected had rated at least 20 movies. Unlike previous MovieLens data sets, no demographic information is included. Each user is represented by an id, and no other information is provided." - http://files.grouplens.org/
-
 ##explore the data
 
 Now we can explore our training data.  By examining the structure of our training and test sets.
@@ -122,7 +131,6 @@ genre_sep <- edx %>% separate_rows(genres, sep = "\\|") %>%
   group_by(genres) %>%
   summarise(count = n()) %>%
   arrange(desc(count))
-genre_sep
 ```
 
 
@@ -145,7 +153,6 @@ title_count <- edx %>%
   group_by(movieId) %>%
   summarise(count = n()) %>%
   arrange(desc(count))
-title_count
 ```
 
 ```{r}
@@ -236,14 +243,14 @@ user_avgs <- edx %>%
 
 Now we will add user bias to our final algorithm.  This will be done by adding the movie_avgs and user_avgs vectors to our training data (edx) and then summing the average rating (mu), movie bias (b_i) and user bias (b_u)
 
-```{r}
+```{r, add user bias}
 predicted_ratings <- edx %>%
   left_join(movie_avgs, by='movieId') %>%
   left_join(user_avgs, by='userId') %>%
   mutate(pred = mu + b_i + b_u) %>%
   pull(pred)
 ```
-```{r}
+```{r, add to model and running total}
 model_2_rmse <- RMSE(predicted_ratings, edx$rating)
 rmse_results <- bind_rows(rmse_results,
                           data_frame(method = "Movie + User Bias Model",
@@ -255,36 +262,12 @@ rmse_results
 
 Now our RMSE is at .85 which is a ~20% improvement over just guessing the average rating.
 
-Next we want to regularize the algorithm by accounting for values that due to a lack of data, have produced a signifigant impact.
-
-To do this for movie bias we will penalize large estimates of both movie and user bias which result from few ratings by adding a fixed lambda to the number of ratings per movie then we will apply the same concpet of add a fixed lambda to the user bias.
-
-First we will regularize the movie bias.  Since lambda is a fixed value (tuning parameter) we can use cross validation to choose the best value (lowest)
-```{r, lambda calc movie bias}
-lambdas <- seq(0, 10, .25)
-
-mu <- mean(edx$rating)
-
-just_the_sum <- edx %>%
-  group_by(movieId) %>%
-  summarize(s = sum(rating - mu), n_i = n())
-
-just_the_sum #here for each movie id we have a running total rating-rating average on a per record basis (s) and the total number of ratings (n_i)
-```
-
-```{r}
-library(caret)
-```
-```{r}
-rmses <- sapply(lambdas, function(l){
-  predicted_ratings <- edx %>% 
-  left_join(just_the_sum, by='movieId') %>%
-  mutate(b_i = s/(n_i+l)) %>%
-  mutate(pred = mu + b_i) %>%
-  .$pred
-return(RMSE(predicted_ratings, edx$rating))
-})
-plot(lambdas, rmses)
-```
 #conclusion
-a conclusion section that gives a brief summary of the report, its limitations and future work (the last two are recommended but not necessary)
+
+The algorithm developed is derived from a comparison of the average unique movie rating and average unique user rating compared to the overall average rating.  This algorithm produces an
+RMSE of .8567039.
+```{r}
+rmse_results
+```
+
+The limitation of this algorithm is the lack of regularization which would account for the extremes of the data set (that 5 star users true impact) or movies that only have 1 or 2 ratings.  Future work would be to incorporate regularization and enable the algorithm's use in a movie recommendation program.
