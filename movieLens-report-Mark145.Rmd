@@ -205,7 +205,86 @@ predicted_ratings <- mu + edx %>%
   pull(b_i)
 ```
 
+The predicted_ratings table now contains 90000055 objects and a value.  the order is tied to the order of our training data (edx) which means record one in edx has a current predicted ratining of record 1 in predicted_ratinings and accounts for overall average rating, plus or minus the bias that individual movie recieved.
 
+```{r, structures}
+str(predicted_ratings)
+str(edx)
+```
 
+```{r, edit model rmse table}
+model_1_rmse <- RMSE(edx$rating, predicted_ratings)
+rmse_results <- bind_rows(rmse_results,
+                          data_frame(method="Movie Bias added to Rating Average",
+                                     RMSE = model_1_rmse))
+```
+
+Just like we did for movies, calculate each movies average rating, we can calculate each users' average rating.  This will be user bias.  An extreme example of user bias would be userId=1.  We can see that this user really loves those 5 stars.  To help offset the 'unmotivated' we will collect the average user rating.
+
+```{r, 5 star user}
+edx %>% filter(userId == 1) %>% select(userId, rating, title)
+```
+
+Finding the user's 'average' rating will be done by taking the users rating, subtracting the average rating for the whole data set (mu) and subtracting the movie bias (b_i) for each movie the user rated.  We will then average this subtraction formula and call it user bias (user_avgs)
+
+```{r, user bias}
+user_avgs <- edx %>%
+  left_join(movie_avgs, by = 'movieId') %>%
+  group_by(userId) %>%
+  summarize(b_u = mean(rating - mu - b_i))
+```
+
+Now we will add user bias to our final algorithm.  This will be done by adding the movie_avgs and user_avgs vectors to our training data (edx) and then summing the average rating (mu), movie bias (b_i) and user bias (b_u)
+
+```{r}
+predicted_ratings <- edx %>%
+  left_join(movie_avgs, by='movieId') %>%
+  left_join(user_avgs, by='userId') %>%
+  mutate(pred = mu + b_i + b_u) %>%
+  pull(pred)
+```
+```{r}
+model_2_rmse <- RMSE(predicted_ratings, edx$rating)
+rmse_results <- bind_rows(rmse_results,
+                          data_frame(method = "Movie + User Bias Model",
+                                     RMSE = model_2_rmse))
+```
+```{r}
+rmse_results
+```
+
+Now our RMSE is at .85 which is a ~20% improvement over just guessing the average rating.
+
+Next we want to regularize the algorithm by accounting for values that due to a lack of data, have produced a signifigant impact.
+
+To do this for movie bias we will penalize large estimates of both movie and user bias which result from few ratings by adding a fixed lambda to the number of ratings per movie then we will apply the same concpet of add a fixed lambda to the user bias.
+
+First we will regularize the movie bias.  Since lambda is a fixed value (tuning parameter) we can use cross validation to choose the best value (lowest)
+```{r, lambda calc movie bias}
+lambdas <- seq(0, 10, .25)
+
+mu <- mean(edx$rating)
+
+just_the_sum <- edx %>%
+  group_by(movieId) %>%
+  summarize(s = sum(rating - mu), n_i = n())
+
+just_the_sum #here for each movie id we have a running total rating-rating average on a per record basis (s) and the total number of ratings (n_i)
+```
+
+```{r}
+library(caret)
+```
+```{r}
+rmses <- sapply(lambdas, function(l){
+  predicted_ratings <- edx %>% 
+  left_join(just_the_sum, by='movieId') %>%
+  mutate(b_i = s/(n_i+l)) %>%
+  mutate(pred = mu + b_i) %>%
+  .$pred
+return(RMSE(predicted_ratings, edx$rating))
+})
+plot(lambdas, rmses)
+```
 #conclusion
 a conclusion section that gives a brief summary of the report, its limitations and future work (the last two are recommended but not necessary)
