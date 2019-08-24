@@ -63,7 +63,7 @@ movielens <- left_join(ratings, movies, by = "movieId")
 
 # Validation set will be 10% of MovieLens data
 
-set.seed(1, sample.kind="Rounding")
+set.seed(1)#, sample.kind="Rounding")
 # if using R 3.5 or earlier, use `set.seed(1)` instead
 test_index <- createDataPartition(y = movielens$rating, times = 1, p = 0.1, list = FALSE)
 edx <- movielens[-test_index,]
@@ -108,7 +108,101 @@ Our ratings are stepped in .5 increments from .5 to 5 with 5 representing a movi
 
 ```{r, rating chart}
 ggplot(edx, aes(rating)) +
-  geom_dotplot()
+  geom_bar(fill = "darkgoldenrod") +
+  ggtitle("Ratings Frequency")
+```
+
+Each movie had one or more associated genres.  In the plot below, the associated genres have been tallied and ordered with respect to their total associated count.  This count provides insight into the genre's the users in this data set first, care to rate, and second, each genre's prevalence.
+
+The first insight, 'care to rate', was arrived at by the assumption that while each user was required to rate 20 movies, a user would not rate a movie that the user did not watch,  Therefore, the documented genre's prevalence for the data set can be considered valid.
+
+```{r, genre separation}
+genre_sep <- edx %>% separate_rows(genres, sep = "\\|") %>%
+  select(genres) %>%
+  group_by(genres) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count))
+genre_sep
+```
+
+
+```{r, genre exploration}
+genre_sep %>%
+  ggplot(aes(x = reorder(genres, -count), count)) +
+  geom_point() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  xlab("Genre") +
+  ggtitle("Genre Frequency")
+
+```
+The last exploration of the data set that will be visualized is each movie's prevalence.
+
+The chart below contains our movieIds along the x axis and the amount of times that movie was rated on the y axis.  It is save to say that more than 75% of the movies have less than 5,000 ratings.  Which could be valuable for start up video services.  Why host the full gamut of videos when the majority of the population only watch ~500 movies?  You can save on storage space, and work to optimize delivery of the top ~500 movies.
+
+```{r, movie-prevalence}
+title_count <- edx %>%
+  select(movieId, title) %>%
+  group_by(movieId) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count))
+title_count
+```
+
+```{r}
+title_count %>%
+  ggplot(aes(x = movieId, count)) +
+  geom_violin(trim = TRUE, bw = 1000) +
+  theme(axis.text = element_blank())
+```
+
+For this use case, we will focus on optimizing an algorithm for all movies.
+
+Our check algorithm, how well we did will be computed by 'risdual mean square error' (RMSE).  We will find the difference for each user from our predicted rating for a movie, to what the user actually predicted.  Then square this value and average it for all users and movies.  Lastly, we will find the square root of that average and report the value.  A value of 1 means 1 rating value off form reality.
+
+For example: userID 4 rated movieID 3 as a 4 rating.  We predicted (hopefully a 4) a 5 rating for userID4 on movieID3.  Our check function would work like this:
+  5-4 = 1
+  1^2 = 1
+  mean(1) = 1
+  sqrt(1) = 1
+  RMSE = 1, not good.
+  
+```{r, RMSE function}
+RMSE <- function(true_ratings, predicted_ratings){
+  sqrt(mean((true_ratings - predicted_ratings)^2))
+}
+```
+  
+First we will compute the average rating and call this mu.
+```{r, rating average}
+mu <- mean(edx$rating)
+mu
+```
+
+With the average rating at 3.512 our base RMSE can now be computed for us guessing this average for every user in our test set.  The result of 1.06 below indicates we are off by a star if we always guess the average.
+```{r}
+RMSE(edx$rating, mu)
+```
+
+```{r}
+naive_rmse <- RMSE(edx$rating, mu)
+rmse_results <- data_frame(method = "Rating Average", RMSE = naive_rmse)
+```
+  
+Now we will assume a movie can have bias (b_i).  We will compute the average rating on a movie by movie basis and compaire the difference of the moivie average to the overall average (1.06).  Then average this value of differences and add this into our recommendation algorithm.
+
+```{r, movie avgs}
+movie_avgs <- edx %>%
+  group_by(movieId) %>%
+  summarize(b_i = mean(rating - mu))
+movie_avgs
+
+```
+
+Now we can edit our recomendation algorithm by keeping our rating average and adding each movies average (as our bias).
+```{r, add movie avgs}
+predicted_ratings <- mu + edx %>%
+  left_join(movie_avgs, by='movieId') %>%
+  pull(b_i)
 ```
 
 
